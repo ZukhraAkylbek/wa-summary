@@ -1,0 +1,49 @@
+# WAHA Core: reads WhatsApp groups and posts webhooks to Supabase.
+# Start: docker compose up -d   (variables come from .env in this folder)
+#
+# Payload capture mode (no Supabase needed): override the hook URL to the local
+# capture server from dev/capture.ts:
+#   WHATSAPP_HOOK_URL=http://host.docker.internal:8787/webhook docker compose up -d
+services:
+  waha:
+    image: devlikeapro/waha
+    container_name: waha
+    restart: unless-stopped
+    ports:
+      - "${WAHA_PORT:-3000}:3000"
+    environment:
+      WHATSAPP_HOOK_URL: "${WHATSAPP_HOOK_URL:-https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/wa-webhook?secret=${WEBHOOK_SECRET}}"
+      WHATSAPP_HOOK_EVENTS: "message.any"
+      WHATSAPP_API_KEY: "${WAHA_API_KEY}"
+      WHATSAPP_RESTART_ALL_SESSIONS: "true"
+      WAHA_DASHBOARD_USERNAME: "${WAHA_DASHBOARD_USERNAME:-admin}"
+      WAHA_DASHBOARD_PASSWORD: "${WAHA_DASHBOARD_PASSWORD:-admin}"
+      WAHA_PRINT_QR: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+
+  # Delivers queued bot replies. Edge Functions cannot reach WAHA on localhost.
+  bot-worker:
+    image: denoland/deno:2.4.0
+    container_name: wa-bot-worker
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      WAHA_API_KEY: ${WAHA_API_KEY}
+      WAHA_SESSION: ${WAHA_SESSION:-default}
+      WAHA_LOCAL_URL: http://host.docker.internal:${WAHA_PORT:-3001}
+    volumes:
+      - ./dev/bot-worker.ts:/app/bot-worker.ts:ro
+    command: ["run", "--allow-net", "--allow-env", "--allow-read", "/app/bot-worker.ts"]
+    depends_on:
+      - waha
+
+volumes:
+  waha_sessions:
+  waha_media:

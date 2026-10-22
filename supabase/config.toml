@@ -1,0 +1,10 @@
+# Supabase CLI config. project_id подставится при `npx supabase link`.
+project_id = "waha-whatsapp"
+
+[functions.wa-webhook]
+# WAHA не умеет слать JWT — проверяем свой секрет через ?secret=
+verify_jwt = false
+
+[functions.wa-daily-summary]
+# Вызывается pg_cron с service role key
+verify_jwt = true

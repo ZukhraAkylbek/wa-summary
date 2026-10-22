@@ -1,0 +1,9 @@
+.env
+web/.env
+.vercel/
+dev/captured-events.jsonl
+dev/*.log
+supabase/.temp/
+supabase/.branches/
+node_modules/
+dist/
